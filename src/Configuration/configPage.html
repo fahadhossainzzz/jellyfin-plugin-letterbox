@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Letterbox</title>
+</head>
+<body>
+    <div id="LetterboxConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-textarea">
+        <div data-role="content">
+            <div class="content-primary">
+                <h2>Letterbox</h2>
+                <p>Finds black bars baked into your videos and tags each item <code>bars:&lt;ratio&gt;</code> (for example <code>bars:2.40</code>),
+                    so Wholphin NoBars' <b>Full screen (auto)</b> can zoom past them. Media files are only read, never changed.
+                    Runs as <b>Dashboard → Scheduled Tasks → Letterbox → Detect baked-in black bars</b>, after every library scan and nightly at 03:00.</p>
+                <form id="LetterboxConfigForm">
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="Enabled" type="checkbox" is="emby-checkbox" />
+                            <span>Enabled</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="DryRun" type="checkbox" is="emby-checkbox" />
+                            <span>Dry run (measure and report only, do not write tags)</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="textareaLabel" for="OnlyPathsContaining">Only files whose path contains (one per line, empty = whole library)</label>
+                        <textarea id="OnlyPathsContaining" is="emby-textarea" rows="4"></textarea>
+                        <div class="fieldDescription">Use this to test on a few titles first, e.g. <code>Chef (2014)</code>.</div>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="SampleIntervalSeconds">Seconds between sampled frames</label>
+                        <input id="SampleIntervalSeconds" type="number" is="emby-input" min="5" max="600" />
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="Workers">Frames decoded in parallel</label>
+                        <input id="Workers" type="number" is="emby-input" min="1" max="8" />
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="HardwareDecoding" type="checkbox" is="emby-checkbox" />
+                            <span>Hardware decoding (VideoToolbox), falls back to software</span>
+                        </label>
+                    </div>
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ForceRescan" type="checkbox" is="emby-checkbox" />
+                            <span>Re-measure every file on the next run</span>
+                        </label>
+                    </div>
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="ReportFolder">Also write results.json to this folder (optional)</label>
+                        <input id="ReportFolder" type="text" is="emby-input" />
+                    </div>
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+                <h3>Last run</h3>
+                <p id="LastRunSummary">Not run yet.</p>
+                <pre id="LastReport" style="white-space: pre-wrap; font-size: 0.85em; max-height: 40em; overflow: auto;"></pre>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var LetterboxConfig = { pluginUniqueId: '6b1c3a52-7f4e-4d0b-9a61-2f0f8c5e9b17' };
+            var checks = ['Enabled', 'DryRun', 'HardwareDecoding', 'ForceRescan'];
+            var texts = ['OnlyPathsContaining', 'SampleIntervalSeconds', 'Workers', 'ReportFolder'];
+
+            document.querySelector('#LetterboxConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(LetterboxConfig.pluginUniqueId).then(function (config) {
+                    checks.forEach(function (k) { document.querySelector('#' + k).checked = !!config[k]; });
+                    texts.forEach(function (k) { document.querySelector('#' + k).value = config[k] == null ? '' : config[k]; });
+                    document.querySelector('#LastRunSummary').textContent = config.LastRunSummary || 'Not run yet.';
+                    document.querySelector('#LastReport').textContent = config.LastReport || '';
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.querySelector('#LetterboxConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(LetterboxConfig.pluginUniqueId).then(function (config) {
+                    checks.forEach(function (k) { config[k] = document.querySelector('#' + k).checked; });
+                    config.OnlyPathsContaining = document.querySelector('#OnlyPathsContaining').value;
+                    config.ReportFolder = document.querySelector('#ReportFolder').value;
+                    config.SampleIntervalSeconds = parseInt(document.querySelector('#SampleIntervalSeconds').value, 10) || 30;
+                    config.Workers = parseInt(document.querySelector('#Workers').value, 10) || 2;
+                    ApiClient.updatePluginConfiguration(LetterboxConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
